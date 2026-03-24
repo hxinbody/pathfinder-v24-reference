@@ -172,6 +172,7 @@
     <li><strong>9.</strong> <a href="#edge-cases">엣지 케이스 — 방향명과 실제 변화가 다른 경우</a></li>
     <li><strong>10.</strong> <a href="#interactive">인터랙티브 계산기</a></li>
     <li><strong>11.</strong> <a href="#charts">그래프</a></li>
+    <li><strong>12.</strong> <a href="#worked-examples">실전 예시 (Worked Examples)</a></li>
     <li><strong>Ref.</strong> <a href="#references">참고문헌</a></li>
 </ul>
 </div>
@@ -179,8 +180,31 @@
 <!-- ============================================================ -->
 <div class="section" id="prior-art">
 <h2>0. 선행기술(통계 모델) 대비 본 발명의 차별점</h2>
-<p>본 발명의 소요시간 산출 로직은, 기존 통계 기반 접근법과 근본적으로 다른 <strong>생리학적 변화율(Rate) 기반 연속함수 모델</strong>을 사용합니다.
-아래 표는 선행기술(Python 통계 모델)과 본 발명의 핵심 차이를 비교한 것입니다.</p>
+
+<h3>0-1. 선행기술의 근본적 한계</h3>
+<p>기존 통계 모델(선행기술)은 DB에 축적된 사용자 체성분 변화 이력으로부터 소요시간을 추정합니다.
+그러나 이 접근법은 다음과 같은 <strong>근본적 한계</strong>를 가지고 있습니다.</p>
+
+<div class="warning">
+    <strong>표본의 목표 지향성 부재:</strong> DB에 기록된 체성분 변화 데이터에는
+    <strong>명확한 체성분 목표를 가지고 의도적으로 변화를 추구한 사용자</strong>와,
+    <strong>별다른 목표 없이 자연적으로 체성분이 변화한 사용자</strong>가 구분 없이 혼재되어 있습니다.
+    <br><br>
+    표본 범위를 일부 좁히는 필터링을 적용했으나, "의도적 변화"와 "자연적 변화"를 근본적으로 구분할 수 없어
+    <strong>자연적 확률 분포에 의존</strong>하는 한계가 있습니다.
+    이로 인해, 의도적으로 식이 관리와 저항 운동을 병행하며 체성분 목표를 달성하려는 사용자에게는
+    <strong>부정확한 소요시간</strong>이 제시될 수 있습니다.
+</div>
+
+<div class="key-point">
+    <strong>본 발명의 해결:</strong> 생리학적 변화율(Rate) 기반 수식 모델은 DB 표본에 의존하지 않고,
+    <strong>의도적으로 목표를 설정한 사용자가 저항 운동과 식이 관리를 병행할 때</strong>의
+    생리학적 변화 속도를 학술 문헌에 기반하여 직접 모델링합니다.
+    이를 통해 <strong>목표 지향적 사용자에게 적합한 소요시간</strong>을 제시합니다.
+</div>
+
+<h3>0-2. 기술적 차이 비교</h3>
+<p>아래 표는 선행기술(통계 모델)과 본 발명의 핵심 기술적 차이를 비교한 것입니다.</p>
 
 <table>
     <tr>
@@ -236,6 +260,31 @@
     • <strong>해상도의 전환</strong>: 이산 격자(81개 셀) → 연속 공간(무한 해상도)<br>
     • <strong>개인화의 전환</strong>: 체성분 좌표만 고려 → 현재 FFMI 수준, 연령, 경로 진행 상태까지 반영
 </div>
+
+<h3>0-3. 본 발명의 구체적 효과</h3>
+<table>
+    <tr><th style="width:25%;">효과</th><th>설명</th></tr>
+    <tr>
+        <td><strong>목표 지향적 기간 예측</strong></td>
+        <td>자연적 확률 분포가 아닌, <strong>의도적 체성분 변화를 추구하는 사용자</strong>의 생리학적 변화 속도에 기반하여 소요시간을 산출합니다. 저항 운동과 식이 관리를 병행하는 사용자에게 최적화된 현실적 기간을 제공합니다.</td>
+    </tr>
+    <tr>
+        <td><strong>연속적 소요시간 변화</strong></td>
+        <td>이산 클러스터 경계에서 소요시간이 급변하지 않고, 입력값(BMI, PBF, 연령) 변화에 따라 <strong>매끄럽게 연속적으로</strong> 변화합니다. 유사한 체성분의 사용자가 유사한 소요시간을 받는 일관된 경험을 제공합니다.</td>
+    </tr>
+    <tr>
+        <td><strong>다차원 개인화</strong></td>
+        <td>동일한 체성분 목표라도 <strong>현재 FFMI</strong>(근육 발달 수준), <strong>연령</strong>(anabolic resistance), <strong>경로 방향</strong>(다이어트/벌크/리컴프)에 따라 서로 다른 소요시간을 산출합니다. (<a href="#worked-examples">섹션 12 실전 예시</a> 참조)</td>
+    </tr>
+    <tr>
+        <td><strong>리컴포지션 난이도 정량화</strong></td>
+        <td>근증가와 지방감소를 동시에 추구하는 리컴포지션 목표의 난이도를 <strong>에너지 적자 심각도(severity)</strong>로 자동 산출하여, 비현실적 목표에 대해 적절히 긴 기간을 제시합니다.</td>
+    </tr>
+    <tr>
+        <td><strong>대사적응 반영</strong></td>
+        <td>장기 칼로리 적자 시 발생하는 <strong>기초대사율 감소(adaptive thermogenesis)</strong>를 HybridGamma(γ) 가중치로 반영하여, 다이어트 후반부의 감량 속도 둔화를 소요시간에 포함합니다.</td>
+    </tr>
+</table>
 </div>
 
 <!-- ============================================================ -->
@@ -1748,6 +1797,170 @@ function drawCharts() {
 drawCharts();
 calculate();
 </script>
+
+<!-- ============================================================ -->
+<div class="section" id="worked-examples">
+<h2>12. 실전 예시 (Worked Examples)</h2>
+<p>동일한 인물과 목표에 대해 V2.4가 소요시간을 산출하는 <strong>전체 계산 과정</strong>을 단계별로 보여줍니다.
+각 시나리오는 서로 다른 PathDirection을 다루며, V2.4의 핵심 기능이 어떻게 작동하는지 확인할 수 있습니다.</p>
+
+<!-- ===== 시나리오 A: Diet ===== -->
+<div class="case-card" style="margin:20px 0; padding:20px;">
+<h3 style="color:#f093fb; margin-top:0;">시나리오 A: 다이어트 <span style="background:rgba(240,147,251,0.2); color:#f093fb; padding:2px 10px; border-radius:10px; font-size:0.75rem; margin-left:8px;">Diet (FFM↓ BFM↓)</span></h3>
+<p><strong>30세 남성, 175cm</strong> — BMI 28 / PBF 25% → BMI 23 / PBF 15%</p>
+
+<div class="formula-box">
+<span class="comment">// Step 1: BMI/PBF → FFM/BFM 변환</span>
+시작: WT = 28 × 1.75² = <span class="highlight">85.8kg</span>   BFM = 85.8 × 25% = <span class="highlight">21.4kg</span>   FFM = 85.8 − 21.4 = <span class="highlight">64.3kg</span>   FFMI = 64.3 / 1.75² = <span class="highlight">21.0</span>
+목표: WT = 23 × 1.75² = <span class="highlight">70.4kg</span>   BFM = 70.4 × 15% = <span class="highlight">10.6kg</span>   FFM = 70.4 − 10.6 = <span class="highlight">59.9kg</span>
+
+<span class="comment">// Step 2: 변화량 및 PathDirection 판정</span>
+ΔFFM = <span class="loss">−4.44kg</span>   ΔBFM = <span class="loss">−10.87kg</span>   ΔWeight = −15.31kg
+→ FFM↓ BFM↓ → PathDirection = <span class="highlight">Diet</span>
+
+<span class="comment">// Step 3: 개별 소요시간 산출</span>
+<span class="fn">FFM 감소</span>: weightLossRate = <span class="fn">GetContinuousWeightLossRate</span>(BMI 28) = <span class="highlight">3.45</span> kg/월
+         ffmLossRate = 3.45 × 0.25 = 0.86 kg/월
+         baseMonths = 4.44 / 0.86 = 5.16개월
+         × 연령계수(30세) = 5.16 × <span class="highlight">0.95</span> = <span class="highlight">4.90개월</span>  <span class="comment">// 30대: 근보존 -5%</span>
+
+<span class="fn">BFM 감소</span>: bfmLossRate = 3.45 × 0.75 = 2.59 kg/월
+         BFM_Months = 10.87 / 2.59 = <span class="highlight">4.21개월</span>
+
+<span class="comment">// Step 4: 채택 로직</span>
+Diet → <span class="highlight">Max</span>(FFM_Months, BFM_Months) = Max(4.90, 4.21) = <span class="highlight">4.90개월</span>
+
+<span class="comment">// Step 5: 최종 결과</span>
+<span class="highlight">4.90개월 × 30 = 약 147일 (4.9개월)</span>
+</div>
+
+<div class="key-point">
+    <strong>V2.4 효과:</strong> BMI 28에서의 감량 속도(3.45 kg/월)는 BMI 연동 포화성장 함수로 결정됩니다.
+    BMI가 낮은 사람(예: BMI 22)은 감량 속도가 2.6 kg/월로 느려져 소요시간이 더 길어집니다.
+    또한 30세의 근손실 연령 계수(0.95)가 적용되어, 20대보다 약 5% 빠른 근손실을 반영합니다.
+    <br>다구간 경로에서는 <strong>HybridGamma(γ=0.02)</strong>가 체중감소 구간에 적용되어 후반부 둔화를 추가 반영합니다.
+</div>
+</div>
+
+<!-- ===== 시나리오 B: CleanBulk ===== -->
+<div class="case-card" style="margin:20px 0; padding:20px;">
+<h3 style="color:#feca57; margin-top:0;">시나리오 B: 벌크업 <span style="background:rgba(254,202,87,0.2); color:#feca57; padding:2px 10px; border-radius:10px; font-size:0.75rem; margin-left:8px;">CleanBulk (FFM↑ BFM→)</span></h3>
+<p><strong>25세 남성, 178cm</strong> — BMI 21 / PBF 14% → BMI 24 / PBF 12%</p>
+
+<div class="formula-box">
+<span class="comment">// Step 1: BMI/PBF → FFM/BFM 변환</span>
+시작: WT = <span class="highlight">66.5kg</span>   BFM = <span class="highlight">9.3kg</span>   FFM = <span class="highlight">57.2kg</span>   FFMI = <span class="highlight">18.1</span>
+목표: WT = <span class="highlight">76.0kg</span>   BFM = <span class="highlight">9.1kg</span>   FFM = <span class="highlight">66.9kg</span>
+
+<span class="comment">// Step 2: 변화량 및 PathDirection 판정</span>
+ΔFFM = <span class="gain">+9.70kg</span>   ΔBFM = <span class="neutral">−0.19kg</span> (≈0)   ΔWeight = +9.51kg
+→ FFM↑ BFM→ → PathDirection = <span class="highlight">CleanBulk</span>
+
+<span class="comment">// Step 3: 개별 소요시간 산출</span>
+<span class="fn">FFM 증가</span>: smmRate = <span class="fn">GetContinuousSMMGainRate</span>(FFMI 18.1, 남성) = <span class="highlight">0.783</span> kg/월
+         ffmRate = 0.783 × 2.0 = <span class="highlight">1.566</span> kg/월
+         FFM_Months = 9.70 / 1.566 = <span class="highlight">6.19개월</span>
+         <span class="comment">// 25세 → 연령계수 1.0 (보정 없음)</span>
+
+<span class="comment">// Step 4: 채택 로직 + Recomp 계수</span>
+CleanBulk → ffmMonths / recompCoeff = 6.19 / <span class="highlight">0.9</span> = <span class="highlight">6.88개월</span>
+<span class="comment">// 체중증가 Cap 확인: maxWeightGain(BMI 21) = 2.80 kg/월 → 9.51/2.80 = 3.40개월</span>
+<span class="comment">// Max(6.88, 3.40) = 6.88 → FFM 소요시간이 dominant</span>
+
+<span class="comment">// Step 5: 최종 결과</span>
+<span class="highlight">6.88개월 × 30 = 약 206일 (6.9개월)</span>
+</div>
+
+<div class="key-point">
+    <strong>V2.4 효과:</strong> FFMI 18.1(일반 남성 수준)에서의 SMM 증가율은 0.783 kg/월로,
+    FFMI 연속 지수감쇄 함수에 의해 자동 결정됩니다.
+    만약 이 사용자가 이미 FFMI 23(운동하는 남성)이었다면 증가율은 0.25 kg/월로 약 3배 느려져, 소요시간이 크게 늘어납니다.
+    <br>CleanBulk 경로는 Recomp 계수 0.9가 적용되어 +11% 추가 기간이 반영됩니다 (잉여 칼로리에서 체지방 0 유지의 효율 저하).
+</div>
+</div>
+
+<!-- ===== 시나리오 C: LeanMassUp (리컴포지션) ===== -->
+<div class="case-card" style="margin:20px 0; padding:20px;">
+<h3 style="color:#4ecdc4; margin-top:0;">시나리오 C: 리컴포지션 <span style="background:rgba(78,205,196,0.2); color:#4ecdc4; padding:2px 10px; border-radius:10px; font-size:0.75rem; margin-left:8px;">LeanMassUp (FFM↑ BFM↓ BMI→)</span></h3>
+<p><strong>28세 남성, 175cm</strong> — BMI 25 / PBF 22% → BMI 25 / PBF 15%</p>
+
+<div class="formula-box">
+<span class="comment">// Step 1: BMI/PBF → FFM/BFM 변환</span>
+시작: WT = <span class="highlight">76.6kg</span>   BFM = <span class="highlight">16.8kg</span>   FFM = <span class="highlight">59.7kg</span>   FFMI = <span class="highlight">19.5</span>
+목표: WT = <span class="highlight">76.6kg</span>   BFM = <span class="highlight">11.5kg</span>   FFM = <span class="highlight">65.1kg</span>
+
+<span class="comment">// Step 2: 변화량 및 PathDirection 판정</span>
+ΔFFM = <span class="gain">+5.36kg</span>   ΔBFM = <span class="loss">−5.36kg</span>   ΔBMI = 0   ΔWeight = 0
+→ FFM↑ BFM↓ + ΔBMI ≤ 0.5 → PathDirection = <span class="highlight">LeanMassUp</span> (순수 리컴포지션)
+
+<span class="comment">// Step 3: 개별 소요시간 산출</span>
+<span class="fn">FFM 증가</span>: smmRate(FFMI 19.5) = <span class="highlight">0.561</span> kg/월 → ffmRate = 1.123 kg/월
+         FFM_Months = 5.36 / 1.123 = <span class="highlight">4.77개월</span>
+
+<span class="fn">BFM 감소</span>: weightLossRate(BMI 25) = 3.09 kg/월 → bfmLossRate = 2.32 kg/월
+         BFM_Months = 5.36 / 2.32 = <span class="highlight">2.31개월</span>
+
+<span class="comment">// Step 4: Recomp 계수 자동 산출</span>
+severity = |ΔBFM| / (|ΔBFM| + ΔFFM) = 5.36 / (5.36 + 5.36) = <span class="highlight">0.50</span>
+LeanMassUp 계수 = Clamp((1.0 − 0.50 × 0.4) × 0.9, 0.4, 0.95) = 0.80 × 0.9 = <span class="highlight">0.72</span>
+
+채택: Max(FFM/recomp, BFM) = Max(4.77 / 0.72, 2.31) = Max(<span class="highlight">6.63</span>, 2.31) = <span class="highlight">6.63개월</span>
+
+<span class="comment">// Step 5: 최종 결과</span>
+<span class="highlight">6.63개월 × 30 = 약 199일 (6.6개월)</span>
+</div>
+
+<div class="key-point">
+    <strong>V2.4 효과:</strong> 이 시나리오는 <strong>체중 변화 없이</strong> 근육 +5.36kg / 체지방 −5.36kg를 동시에 달성하려는 리컴포지션 목표입니다.
+    FFM 단독 소요시간은 4.77개월이지만, <strong>severity = 0.50</strong>(BFM 감소가 전체 변화의 절반)에 의해 Recomp 계수가 0.72로 산출되어
+    실질 소요시간이 <strong>6.63개월로 39% 증가</strong>합니다.
+    <br>이는 에너지 적자 상태에서 동시에 근합성을 추구하는 것의 생리학적 어려움을 정량적으로 반영한 결과입니다.
+    선행기술에서는 이러한 리컴포지션 특수성이 반영되지 않았습니다.
+</div>
+</div>
+
+<!-- ===== 시나리오 D: 고령자 다이어트 ===== -->
+<div class="case-card" style="margin:20px 0; padding:20px;">
+<h3 style="color:#ff8a65; margin-top:0;">시나리오 D: 고령자 다이어트 <span style="background:rgba(255,138,101,0.2); color:#ff8a65; padding:2px 10px; border-radius:10px; font-size:0.75rem; margin-left:8px;">Diet + 연령 보정</span></h3>
+<p><strong>55세 여성, 162cm</strong> — BMI 27 / PBF 35% → BMI 23 / PBF 28%</p>
+
+<div class="formula-box">
+<span class="comment">// Step 1: BMI/PBF → FFM/BFM 변환</span>
+시작: WT = <span class="highlight">70.9kg</span>   BFM = <span class="highlight">24.8kg</span>   FFM = <span class="highlight">46.1kg</span>   FFMI = <span class="highlight">17.5</span>
+목표: WT = <span class="highlight">60.4kg</span>   BFM = <span class="highlight">16.9kg</span>   FFM = <span class="highlight">43.5kg</span>
+
+<span class="comment">// Step 2: 변화량 및 PathDirection 판정</span>
+ΔFFM = <span class="loss">−2.60kg</span>   ΔBFM = <span class="loss">−7.90kg</span>   ΔWeight = −10.50kg
+→ FFM↓ BFM↓ → PathDirection = <span class="highlight">Diet</span>
+
+<span class="comment">// Step 3: 개별 소요시간 산출 — 연령 계수가 핵심</span>
+<span class="fn">FFM 감소</span>: weightLossRate(BMI 27) = <span class="highlight">3.34</span> kg/월
+         ffmLossRate = 3.34 × 0.25 = 0.84 kg/월
+         baseMonths = 2.60 / 0.84 = 3.11개월
+         × <strong>근손실 연령계수(55세 여성)</strong> = 3.11 × <span class="highlight">0.82</span> = <span class="highlight">2.55개월</span>
+         <span class="comment">// 0.82 = 근보존 능력 -18% → 소요시간 단축 → 근손실이 더 빠르게 진행</span>
+
+<span class="fn">BFM 감소</span>: bfmLossRate = 3.34 × 0.75 = 2.51 kg/월
+         BFM_Months = 7.90 / 2.51 = <span class="highlight">3.16개월</span>
+         <span class="comment">// BFM에는 연령 보정 없음 (BMI만으로 결정)</span>
+
+<span class="comment">// Step 4: 채택 로직</span>
+Diet → Max(FFM_Months, BFM_Months) = Max(2.55, 3.16) = <span class="highlight">3.16개월</span>
+
+<span class="comment">// Step 5: 최종 결과</span>
+<span class="highlight">3.16개월 × 30 = 약 95일 (3.2개월)</span>
+</div>
+
+<div class="key-point">
+    <strong>V2.4 효과 — 연령 보정의 핵심:</strong><br>
+    • <strong>근손실 가속 반영:</strong> 55세 여성의 근손실 연령 계수(0.82)로 인해 FFM 감소 소요시간이 3.11 → 2.55개월로 단축됩니다. 이는 폐경 후 에스트로겐 감소로 인한 근보존 능력 저하를 반영합니다.<br>
+    • <strong>동일 목표, 다른 결과:</strong> 만약 이 사용자가 25세였다면 근손실 연령 계수는 1.0이어서 FFM 소요시간이 3.11개월 → 전체 3.16개월로 거의 동일하지만,
+    55세에서는 근손실이 빨라져 BFM 감소가 bottleneck이 됩니다.<br>
+    • <strong>선행기술과의 차이:</strong> 선행기술(통계 모델)에서는 연령에 따른 근손실 속도 차이가 반영되지 않아, 25세와 55세에게 동일한 소요시간을 제시합니다.
+</div>
+</div>
+
+</div>
 
 <!-- ============================================================ -->
 <div class="section" id="references">
