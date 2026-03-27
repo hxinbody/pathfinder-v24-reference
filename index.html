@@ -130,7 +130,7 @@
 
 <h1>Pathfinder V2.4 — 소요시간 산출 로직 전체 레퍼런스</h1>
 <p class="subtitle">
-    <span class="version-badge">V2.4.3</span>
+    <span class="version-badge">V2.4.4</span>
     변화율(Rate) 기반 소요시간 계산 — FFMI 연속함수, BMI 연동 감량속도, 체중증가 Cap, Recomp 페널티, HybridGamma
 </p>
 
@@ -812,12 +812,12 @@ FFMI 연속함수와 동일한 지수감쇄/성장 패턴을 사용합니다.</p
             <span style="color:#666;">+ <strong>Recomp 계수 0.9</strong> (효율 손실)</span>
         </td>
         <td style="vertical-align:top; text-align:left; padding:10px;">
-            <strong style="font-size:0.95rem; color:#00d4ff;">LeanBulk</strong> <span style="color:#666; font-size:0.8rem;">(ΔBMI &gt; 0.5)</span><br>
+            <strong style="font-size:0.95rem; color:#00d4ff;">LeanBulk</strong> <span style="color:#666; font-size:0.8rem;">(ΔBMI &gt; 0.1)</span><br>
             <span style="color:#888;">FFM↑ BFM↓ + 체중↑ — 칼로리 약간 잉여</span><br>
             <span style="color:#81d4fa;">채택: <strong>Max(ffm/recomp, bfm)</strong> + Cap</span><br>
-            <span style="color:#666;">Recomp: severity 기반 (0.4~0.95)</span>
+            <span style="color:#666;">Recomp: smmRate^0.6 × severity (0.20~0.95)</span>
             <hr style="border-color:rgba(255,255,255,0.1); margin:6px 0;">
-            <strong style="font-size:0.95rem; color:#4ecdc4;">LeanMassUp</strong> <span style="color:#666; font-size:0.8rem;">(ΔBMI ≤ 0.5)</span><br>
+            <strong style="font-size:0.95rem; color:#4ecdc4;">LeanMassUp</strong> <span style="color:#666; font-size:0.8rem;">(ΔBMI ≤ 0.1)</span><br>
             <span style="color:#888;">FFM↑ BFM↓ + 체중→/↓ — 순수 recomp (가장 어려움)</span><br>
             <span style="color:#81d4fa;">채택: <strong>Max(ffm/recomp, bfm)</strong></span><br>
             <span style="color:#666;">Recomp: severity × 0.9 (추가 페널티)</span>
@@ -878,62 +878,77 @@ FFMI 연속함수와 동일한 지수감쇄/성장 패턴을 사용합니다.</p
     </tr>
 </table>
 
-<h3 id="recomp-penalty">6-2. Recomp 페널티 — severity(에너지 적자 심각도) 기반 (GetAutoRecompCoefficient)</h3>
-<p>Recomp 계수는 <strong>BFM 감소 비중(severity)</strong>으로 자동 산출됩니다.
-FFM↑BFM↓ 경로에서 BFM 감소량이 FFM 증가량보다 클수록 에너지 적자가 심화되어 리컴포지션이 어려워집니다.</p>
+<h3 id="recomp-penalty">6-2. Recomp 페널티 — difficulty_direct 방식 (GetAutoRecompCoefficient)</h3>
+<p>Recomp 계수는 <strong>smmRate<sup>power</sup></strong>(FFMI 기반 근성장율의 거듭제곱)과 <strong>severity</strong>(에너지 적자 심각도)의 조합으로 산출됩니다.
+FFMI가 높을수록(상급자) smmRate가 낮아져 RC가 감소하고, 리컴포지션 소요기간이 길어집니다.</p>
 
 <div class="formula-box">
-<span class="fn">GetAutoRecompCoefficient</span>(pathDirection, delta):
+<span class="comment">// 상수</span>
+RECOMP_POWER = <span class="highlight">0.6</span>
+RECOMP_SEVERITY_FACTOR = <span class="highlight">0.3</span>
+RECOMP_COEFF_FLOOR = <span class="highlight">0.20</span>
+RECOMP_COEFF_CEILING = <span class="highlight">0.95</span>
+
+<span class="fn">GetAutoRecompCoefficient</span>(pathDirection, delta, ffmi, isMale):
+    smmRate = <span class="fn">GetContinuousSMMGainRate</span>(ffmi, isMale)
     switch pathDirection:
         <span class="highlight">CleanBulk</span>:
             return <span class="highlight">0.9</span>  <span class="comment">// 잉여 칼로리에서도 지방 0 유지 — 약간의 효율 저하 고정 적용</span>
 
         <span class="highlight">LeanBulk</span>:
             if delta.DeltaFFM ≤ 0.1: return 1.0
-            severity = |ΔBFM| / (|ΔBFM| + ΔFFM)   <span class="comment">// BFM 감소 비중 (0 ~ <1)</span>
-            return <span class="fn">Clamp</span>(1.0 - severity × <span class="highlight">0.4</span>, <span class="highlight">0.4</span>, <span class="highlight">0.95</span>)
+            severity = |ΔBFM| / (|ΔBFM| + ΔFFM)   <span class="comment">// BFM 감소 비중 (0 ~ &lt;1)</span>
+            recompBase = smmRate<sup>0.6</sup>
+            return <span class="fn">Clamp</span>(recompBase × (1.0 - severity × <span class="highlight">0.3</span>), <span class="highlight">0.20</span>, <span class="highlight">0.95</span>)
 
         <span class="highlight">LeanMassUp</span>:
             if delta.DeltaFFM ≤ 0.1: return 1.0
             severity = |ΔBFM| / (|ΔBFM| + ΔFFM)
-            return <span class="fn">Clamp</span>((1.0 - severity × <span class="highlight">0.4</span>) × <span class="highlight">0.9</span>, <span class="highlight">0.4</span>, <span class="highlight">0.95</span>)
+            recompBase = smmRate<sup>0.6</sup>
+            return <span class="fn">Clamp</span>(recompBase × (1.0 - severity × <span class="highlight">0.3</span>) × <span class="highlight">0.9</span>, <span class="highlight">0.20</span>, <span class="highlight">0.95</span>)
             <span class="comment">// LeanBulk에 추가 0.9 페널티 — 순수 리컴프(체중 유지)가 가장 어려움</span>
 
         default: return <span class="highlight">1.0</span>  <span class="comment">// 페널티 없음</span>
 </div>
 
 <div class="key-point">
-    <strong>핵심 메커니즘:</strong> severity = BFM 감소 비중 → 에너지 적자 심각도 지표<br>
-    • severity → 0 (BFM 감소 미미): 페널티 최소 → LeanBulk 계수 ≈ 0.95<br>
-    • severity → 1 (BFM 감소 지배적): 페널티 최대 → LeanBulk 계수 ≈ 0.60<br>
+    <strong>핵심 메커니즘:</strong> smmRate<sup>power</sup> × severity 보정<br>
+    • <strong>smmRate<sup>0.6</sup></strong>: FFMI별 리컴프 난이도 — 초보(smmRate≈1.0)→RC≈0.67, 상급(smmRate≈0.14)→RC≈0.24<br>
+    • <strong>severity</strong>: BFM 감소 비중 → 에너지 적자 심각도 보조 지표<br>
     <strong>경로별 차이:</strong>
-    <br>• <strong>CleanBulk</strong>: 고정 0.9 — BFM 변화 없으나 잉여 칼로리에서 지방 0 유지 시 약간의 효율 저하
-    <br>• <strong>LeanBulk</strong>: <code>Clamp(1.0 − severity×0.4, 0.4, 0.95)</code> — 잉여 칼로리 환경에서 BFM↓ FFM↑ 동시 달성
-    <br>• <strong>LeanMassUp</strong>: <code>Clamp((1.0 − severity×0.4)×0.9, 0.4, 0.95)</code> — LeanBulk 대비 0.9 추가 페널티 (순수 리컴프)
+    <br>• <strong>CleanBulk</strong>: 고정 0.9
+    <br>• <strong>LeanBulk</strong>: <code>Clamp(smmRate<sup>0.6</sup> × (1 − severity×0.3), 0.20, 0.95)</code>
+    <br>• <strong>LeanMassUp</strong>: <code>Clamp(smmRate<sup>0.6</sup> × (1 − severity×0.3) × 0.9, 0.20, 0.95)</code>
     <br>• <strong>기타</strong>: 1.0 (페널티 없음)
+    <br><br><strong>초보 대비 배수 (동일 ΔFFM=+2kg, ΔBFM=-2kg 기준):</strong>
+    <br>• 중급 (FFMI 21): 3.0x
+    <br>• 고급 (FFMI 24): 9.2x
+    <br>• 상급 (FFMI 25.5): 16.0x
+    <br>• 극상급 (FFMI 27): 26.6x
 </div>
 
 <div class="warning">
-    <strong>이중 가중 방지 (P-ratio 미적용 이유):</strong> FFMI는 이미 <code>GetContinuousSMMGainRate(ffmi)</code>를 통해
-    <code>CalculateFFMDuration</code> 내 FFM 소요시간에 반영되어 있습니다.
-    Recomp 계수에 FFMI(P-ratio)를 사용하면 동일한 FFMI 효과가 두 번 계산되는 이중 가중 문제가 발생하므로,
-    Recomp 계수는 severity(체성분 변화 비율)만으로 산출합니다.
+    <strong>설계 근거:</strong> 기존 severity-only 방식(RC 하한 0.4)에서는 FFMI 22~27 구간의 RC가 0.40~0.48로 거의 평탄하여
+    상급자와 초급자의 리컴프 기간 차이가 충분히 반영되지 않았습니다. difficulty_direct 방식은 smmRate<sup>power</sup>로
+    FFMI별 차등을 독립적으로 부여하되, RC 하한(0.20)으로 극단적 기간 증가를 방지합니다.
     <br><br><strong>근거:</strong><br>
-    • <a href="https://pubmed.ncbi.nlm.nih.gov/34623696/" style="color:#81d4fa;">Murphy &amp; Koehler (Scand J Med Sci Sports, 2022)</a>: 메타분석 — 에너지 적자가 저항 운동에 의한 근량 증가를 유의하게 저해하며, ~500kcal/일 적자에서 근량 증가가 거의 불가능. 적자의 크기(severity)와 근합성 저해 사이에 용량-반응 관계 확인.<br>
-    • <a href="https://doi.org/10.1519/SSC.0000000000000584" style="color:#81d4fa;">Barakat et al. (Strength Cond J, 2020)</a>: 리컴포지션은 가능하나 훈련 경력이 높을수록(FFMI↑) 점진적으로 어려워짐. 초보자(높은 체지방률)에서 가장 용이, 상급자(심한 적자 하)에서는 거의 불가.<br>
-    • <a href="https://pubmed.ncbi.nlm.nih.gov/28899879/" style="color:#81d4fa;">Hector et al. (FASEB J, 2018)</a>: 40% 에너지 제한 시 안정 시 MPS가 감소하며, 저항 운동이 이 감소를 부분적으로 완화. 큰 에너지 적자일수록 근단백질 합성이 더 크게 억제되는 메커니즘적 근거.
+    • <a href="https://pubmed.ncbi.nlm.nih.gov/34623696/" style="color:#81d4fa;">Murphy &amp; Koehler (Scand J Med Sci Sports, 2022)</a>: 에너지 적자의 크기(severity)와 근합성 저해 사이에 용량-반응 관계 확인.<br>
+    • <a href="https://doi.org/10.1519/SSC.0000000000000584" style="color:#81d4fa;">Barakat et al. (Strength Cond J, 2020)</a>: 훈련 경력이 높을수록(FFMI↑) 리컴포지션이 점진적으로 어려워짐.<br>
+    • <a href="https://pubmed.ncbi.nlm.nih.gov/28899879/" style="color:#81d4fa;">Hector et al. (FASEB J, 2018)</a>: 큰 에너지 적자일수록 근단백질 합성이 더 크게 억제.
 </div>
 
-<h4>Recomp 계수 범위 참고</h4>
+<h4>Recomp 계수 범위 참고 (FFMI 21, severity=0.5 기준)</h4>
 <table>
-    <tr><th>경로</th><th>severity 예시</th><th>계수</th><th>체성분 변화 예시</th></tr>
-    <tr><td>CleanBulk</td><td>해당 없음</td><td><span class="highlight">0.9</span> (고정)</td><td>FFM+3kg, BFM±0</td></tr>
-    <tr><td>LeanBulk</td><td>≈0 (BFM 감소 미미)</td><td>0.95 (상한 clamp)</td><td>FFM+3kg, BFM-0.01kg</td></tr>
-    <tr><td>LeanBulk</td><td>0.5 (균형)</td><td>0.80</td><td>FFM+2kg, BFM-2kg</td></tr>
-    <tr><td>LeanBulk</td><td>≈1 (BFM 지배적)</td><td>≈0.60</td><td>FFM+0.2kg, BFM-3kg</td></tr>
-    <tr><td>LeanMassUp</td><td>≈0</td><td>0.855 (0.95×0.9)</td><td>FFM+3kg, BFM-0.01kg</td></tr>
-    <tr><td>LeanMassUp</td><td>0.5</td><td>0.72 (0.80×0.9)</td><td>FFM+2kg, BFM-2kg</td></tr>
-    <tr><td>LeanMassUp</td><td>≈1</td><td>≈0.54 (0.60×0.9)</td><td>FFM+0.2kg, BFM-3kg</td></tr>
+    <tr><th>경로</th><th>FFMI</th><th>smmRate</th><th>RC</th><th>비고</th></tr>
+    <tr><td>CleanBulk</td><td>전체</td><td>-</td><td><span class="highlight">0.9</span> (고정)</td><td>BFM±0</td></tr>
+    <tr><td>LeanBulk</td><td>18 (초보)</td><td>0.79</td><td>0.74</td><td>리컴프 용이</td></tr>
+    <tr><td>LeanBulk</td><td>21 (중급)</td><td>0.40</td><td>0.49</td><td>난이도 보통</td></tr>
+    <tr><td>LeanBulk</td><td>24 (고급)</td><td>0.20</td><td>0.32</td><td>상당히 어려움</td></tr>
+    <tr><td>LeanBulk</td><td>27 (극상급)</td><td>0.10</td><td>0.22</td><td>floor 근접</td></tr>
+    <tr><td>LeanMassUp</td><td>18 (초보)</td><td>0.79</td><td>0.67</td><td>LeanBulk×0.9</td></tr>
+    <tr><td>LeanMassUp</td><td>21 (중급)</td><td>0.40</td><td>0.44</td><td></td></tr>
+    <tr><td>LeanMassUp</td><td>24 (고급)</td><td>0.20</td><td>0.29</td><td></td></tr>
+    <tr><td>LeanMassUp</td><td>27 (극상급)</td><td>0.10</td><td>0.20</td><td>floor 적용</td></tr>
 </table>
 
 <h3 id="weight-cap-logic">6-3. 체중증가 Cap 적용</h3>
@@ -1421,7 +1436,7 @@ else:
 </div><!-- container -->
 
 <script>
-// ===== V2.4.3 Rate-based Calculation Functions =====
+// ===== V2.4.4 Rate-based Calculation Functions =====
 
 // FFMI 연속 지수감쇄 SMM 증가율
 function getContinuousSMMGainRate(ffmi, isMale) {
@@ -1509,14 +1524,14 @@ function calculateBFMDuration(deltaBFM, startBMI) {
     }
 }
 
-// PathDirection 판별 — LeanBulk/LeanMassUp 구분: ΔBMI > 0.5 기준
+// PathDirection 판별 — LeanBulk/LeanMassUp 구분: ΔBMI > 0.1 기준
 function getPathDirection(deltaFFM, deltaBFM, deltaBMI) {
     const T = 0.5;
     const ffmUp = deltaFFM > T, ffmDown = deltaFFM < -T;
     const bfmUp = deltaBFM > T, bfmDown = deltaBFM < -T;
     if (ffmUp   && bfmUp)   return 'Bulk';
     if (ffmUp   && !bfmUp && !bfmDown) return 'CleanBulk';
-    if (ffmUp   && bfmDown) return deltaBMI > 0.5 ? 'LeanBulk' : 'LeanMassUp';
+    if (ffmUp   && bfmDown) return deltaBMI > 0.1 ? 'LeanBulk' : 'LeanMassUp';
     if (!ffmUp && !ffmDown && bfmUp) return 'FatGain';
     if (!ffmUp && !ffmDown && !bfmUp && !bfmDown) return 'Maintain';
     if (!ffmUp && !ffmDown && bfmDown) return 'Cut';
@@ -1526,20 +1541,29 @@ function getPathDirection(deltaFFM, deltaBFM, deltaBMI) {
     return 'Maintain';
 }
 
-// severity(BFM변화 비율) 기반 자동 Recomp 계수 산출
-function getAutoRecompCoefficient(pathDir, dFFM, dBFM) {
+// difficulty_direct: smmRate^power 기반 자동 Recomp 계수 산출
+const RECOMP_POWER = 0.6;
+const RECOMP_SEVERITY_FACTOR = 0.3;
+const RECOMP_COEFF_FLOOR = 0.20;
+const RECOMP_COEFF_CEILING = 0.95;
+
+function getAutoRecompCoefficient(pathDir, dFFM, dBFM, ffmi, isMale) {
     switch(pathDir) {
         case 'CleanBulk':
             return 0.9;
         case 'LeanBulk': {
             if (dFFM <= 0.1) return 1.0;
+            const smmRate = getContinuousSMMGainRate(ffmi, isMale);
             const severity = Math.abs(dBFM) / (Math.abs(dBFM) + dFFM);
-            return Math.max(0.4, Math.min(0.95, 1.0 - severity * 0.4));
+            const recompBase = Math.pow(smmRate, RECOMP_POWER);
+            return Math.max(RECOMP_COEFF_FLOOR, Math.min(RECOMP_COEFF_CEILING, recompBase * (1.0 - severity * RECOMP_SEVERITY_FACTOR)));
         }
         case 'LeanMassUp': {
             if (dFFM <= 0.1) return 1.0;
+            const smmRate = getContinuousSMMGainRate(ffmi, isMale);
             const severity = Math.abs(dBFM) / (Math.abs(dBFM) + dFFM);
-            return Math.max(0.4, Math.min(0.95, (1.0 - severity * 0.4) * 0.9));
+            const recompBase = Math.pow(smmRate, RECOMP_POWER);
+            return Math.max(RECOMP_COEFF_FLOOR, Math.min(RECOMP_COEFF_CEILING, recompBase * (1.0 - severity * RECOMP_SEVERITY_FACTOR) * 0.9));
         }
         default:
             return 1.0;
@@ -1547,8 +1571,8 @@ function getAutoRecompCoefficient(pathDir, dFFM, dBFM) {
 }
 
 // 소요시간 채택 + 자동 Recomp 페널티 + 체중증가 Cap
-function calculateTotalDuration(ffmMonths, bfmMonths, pathDir, deltaWeight, startBMI, dFFM, dBFM) {
-    const effectiveRecomp = getAutoRecompCoefficient(pathDir, dFFM, dBFM);
+function calculateTotalDuration(ffmMonths, bfmMonths, pathDir, deltaWeight, startBMI, dFFM, dBFM, ffmi, isMale) {
+    const effectiveRecomp = getAutoRecompCoefficient(pathDir, dFFM, dBFM, ffmi, isMale);
     let baseDuration;
     switch(pathDir) {
         case 'CleanBulk':
@@ -1627,8 +1651,8 @@ function calculate() {
     const ffmMonths = calculateFFMDuration(dFFM, startFFMI, isMale, age, startBMI);
     const bfmMonths = calculateBFMDuration(dBFM, startBMI);
     const pathDir = getPathDirection(dFFM, dBFM, dBMI);
-    const recompCoeff = getAutoRecompCoefficient(pathDir, dFFM, dBFM);
-    const totalMonths = calculateTotalDuration(ffmMonths, bfmMonths, pathDir, dWeight, startBMI, dFFM, dBFM);
+    const recompCoeff = getAutoRecompCoefficient(pathDir, dFFM, dBFM, startFFMI, isMale);
+    const totalMonths = calculateTotalDuration(ffmMonths, bfmMonths, pathDir, dWeight, startBMI, dFFM, dBFM, startFFMI, isMale);
     const clampedMonths = Math.max(1.0, Math.min(36.0, totalMonths));
     const totalDays = Math.round(clampedMonths * 30 * 10) / 10;
 
@@ -1891,7 +1915,7 @@ CleanBulk → ffmMonths / recompCoeff = 6.19 / <span class="highlight">0.9</span
 
 <span class="comment">// Step 2: 변화량 및 PathDirection 판정</span>
 ΔFFM = <span class="gain">+5.36kg</span>   ΔBFM = <span class="loss">−5.36kg</span>   ΔBMI = 0   ΔWeight = 0
-→ FFM↑ BFM↓ + ΔBMI ≤ 0.5 → PathDirection = <span class="highlight">LeanMassUp</span> (순수 리컴포지션)
+→ FFM↑ BFM↓ + ΔBMI ≤ 0.1 → PathDirection = <span class="highlight">LeanMassUp</span> (순수 리컴포지션)
 
 <span class="comment">// Step 3: 개별 소요시간 산출</span>
 <span class="fn">FFM 증가</span>: smmRate(FFMI 19.5) = <span class="highlight">0.561</span> kg/월 → ffmRate = 1.123 kg/월
@@ -1902,7 +1926,7 @@ CleanBulk → ffmMonths / recompCoeff = 6.19 / <span class="highlight">0.9</span
 
 <span class="comment">// Step 4: Recomp 계수 자동 산출</span>
 severity = |ΔBFM| / (|ΔBFM| + ΔFFM) = 5.36 / (5.36 + 5.36) = <span class="highlight">0.50</span>
-LeanMassUp 계수 = Clamp((1.0 − 0.50 × 0.4) × 0.9, 0.4, 0.95) = 0.80 × 0.9 = <span class="highlight">0.72</span>
+LeanMassUp 계수 = smmRate^0.6 × (1−0.50×0.3) × 0.9, Clamp(0.20, 0.95) 적용
 
 채택: Max(FFM/recomp, BFM) = Max(4.77 / 0.72, 2.31) = Max(<span class="highlight">6.63</span>, 2.31) = <span class="highlight">6.63개월</span>
 
