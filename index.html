@@ -204,29 +204,52 @@
 <h2>0. 선행기술(통계 모델) 대비 본 발명의 차별점</h2>
 
 <h3>0-1. 선행기술의 근본적 한계</h3>
-<p>기존 통계 모델(선행기술)은 DB에 축적된 사용자 체성분 변화 이력으로부터 소요시간을 추정합니다.
-그러나 이 접근법은 다음과 같은 <strong>근본적 한계</strong>를 가지고 있습니다.</p>
 
-<div class="warning">
-    <strong>표본의 목표 지향성 부재:</strong> DB에 기록된 체성분 변화 데이터에는
-    <strong>명확한 체성분 목표를 가지고 의도적으로 변화를 추구한 사용자</strong>와,
-    <strong>별다른 목표 없이 자연적으로 체성분이 변화한 사용자</strong>가 구분 없이 혼재되어 있습니다.
-    <br><br>
-    표본 범위를 일부 좁히는 필터링을 적용했으나, "의도적 변화"와 "자연적 변화"를 근본적으로 구분할 수 없어
-    <strong>자연적 확률 분포에 의존</strong>하는 한계가 있습니다.
-    이로 인해, 의도적으로 식이 관리와 저항 운동을 병행하며 체성분 목표를 달성하려는 사용자에게는
-    <strong>부정확한 소요시간</strong>이 제시될 수 있습니다.
+<div class="key-point" style="background:rgba(0,212,255,0.08); border-left:3px solid #00d4ff; margin-bottom:20px;">
+    <strong style="color:#00d4ff; font-size:1.05rem;">비유로 이해하기</strong><br><br>
+    <strong>선행기술</strong>은 서울→부산 소요시간을 예측하기 위해,
+    <em>그 도로를 지나간 모든 차량의 GPS 로그 평균</em>을 쓰는 것과 같습니다.<br>
+    — 관광버스, 길 잃은 초보 운전자, 휴게소에서 2시간 쉰 가족, 과속하는 택배 기사가 전부 섞여 있습니다.<br><br>
+    <strong>본 발명</strong>은 <em>도로의 제한속도와 구간 거리</em>로 직접 계산하는 것과 같습니다.<br>
+    — "이 구간은 100km/h, 이 구간은 80km/h" → 거리 ÷ 속도 = 소요시간.
 </div>
 
-<div class="key-point">
-    <strong>본 발명의 해결:</strong> 생리학적 변화율(Rate) 기반 수식 모델은 DB 표본에 의존하지 않고,
-    <strong>의도적으로 목표를 설정한 사용자가 저항 운동과 식이 관리를 병행할 때</strong>의
-    생리학적 변화 속도를 학술 문헌에 기반하여 직접 모델링합니다.
-    이를 통해 <strong>목표 지향적 사용자에게 적합한 소요시간</strong>을 제시합니다.
+<p>기존 통계 모델(선행기술)은 DB에 축적된 사용자 체성분 변화 이력으로부터 소요시간을 추정합니다.
+이 접근법에는 <strong>구조적으로 해결 불가능한 한계</strong>가 있습니다.</p>
+
+<div class="warning">
+    <strong>한계 ①  표본 오염 — "누가 의도적으로 변했는지 알 수 없다"</strong><br>
+    DB에는 <strong>목표를 갖고 식단·운동을 병행한 사용자</strong>와
+    <strong>아무런 목표 없이 자연적으로 체성분이 변한 사용자</strong>가 구분 없이 섞여 있습니다.
+    필터링으로 범위를 좁혀도 "의도적 변화"와 "자연적 변화"는 데이터만으로 구별할 수 없으므로,
+    결과는 <strong>자연적 확률 분포의 평균</strong>에 수렴합니다.
+</div>
+
+<div class="warning">
+    <strong>한계 ②  이산 격자 — "비슷한 사람이 전혀 다른 기간을 받는다"</strong><br>
+    BMI/PBF를 9×9 격자(81개 셀)로 나누므로, 셀 경계 양쪽의 거의 동일한 두 사용자가
+    <strong>완전히 다른 소요시간</strong>을 받을 수 있습니다.
+    예: PBF 24.9%와 25.1% — 체감 차이 없지만, 클러스터가 달라지면 소요시간이 계단식으로 급변합니다.
+</div>
+
+<div class="warning">
+    <strong>한계 ③  개인 변수 무시 — "25세와 55세가 같은 기간"</strong><br>
+    동일 체성분이면 연령·근육 발달 수준에 관계없이 같은 소요시간을 제시합니다.
+    그러나 현실에서는 55세의 근합성 속도가 25세 대비 <strong>~30% 느립니다</strong>
+    (<a href="https://pubmed.ncbi.nlm.nih.gov/19001042/" style="color:#81d4fa;">Kumar et al., 2009</a>).
+</div>
+
+<div class="key-point" style="margin-top:20px;">
+    <strong>본 발명의 해결 — 생리학적 변화율(Rate) 모델</strong><br><br>
+    DB 표본에 의존하지 않고, <strong>"인체가 생리학적으로 얼마나 빠르게 변할 수 있는가"</strong>를
+    학술 문헌에 기반하여 직접 수식으로 모델링합니다.<br>
+    <br>
+    • <strong>표본 오염 해소</strong> → 변화율 자체를 논문 기반으로 정의하므로, 비의도적 변화 데이터에 영향받지 않음<br>
+    • <strong>연속 공간</strong> → PBF 24.9%와 25.1%는 거의 동일한 소요시간 (계단 없음)<br>
+    • <strong>개인화</strong> → 현재 FFMI(근육 수준), 연령, 경로 방향이 모두 수식에 반영됨
 </div>
 
 <h3>0-2. 기술적 차이 비교</h3>
-<p>아래 표는 선행기술(통계 모델)과 본 발명의 핵심 기술적 차이를 비교한 것입니다.</p>
 
 <table>
     <tr>
@@ -235,76 +258,110 @@
         <th style="width:41%; background:rgba(0,212,255,0.15); color:#00d4ff;">본 발명 (생리학적 Rate 모델)</th>
     </tr>
     <tr>
+        <td><strong>핵심 질문</strong></td>
+        <td>"과거에 비슷한 사람들이 <em>평균적으로</em><br>얼마나 걸렸는가?"<br><span class="neutral">— 경험적(empirical) 통계</span></td>
+        <td>"이 사람의 몸이 생리학적으로<br><em>얼마나 빠르게</em> 변할 수 있는가?"<br><span class="gain">— 생리학 원리 기반 수식</span></td>
+    </tr>
+    <tr>
         <td><strong>좌표계</strong></td>
         <td>BMI/PBF 9×9 클러스터 인덱스<br><span class="neutral">— 이산 격자(81개 셀)</span></td>
         <td>FFM/BFM 체성분 질량(kg) 연속 공간<br><span class="gain">— 무한 해상도의 연속 좌표</span></td>
     </tr>
     <tr>
-        <td><strong>소요시간 산출 방법</strong></td>
-        <td>DB 축적 데이터에 대한 2차 다항식 회귀<br><span class="neutral">— 경험적(empirical) 통계 모델</span></td>
-        <td>변화량 ÷ 생리학적 변화속도(Rate)<br><span class="gain">— 인체 생리학 원리에 기반한 수식 모델</span></td>
+        <td><strong>소요시간 산출</strong></td>
+        <td>DB 데이터 2차 다항식 회귀<br><span class="neutral">— 표본 품질에 결과가 종속</span></td>
+        <td>변화량 ÷ 생리학적 변화속도(Rate)<br><span class="gain">— 논문 기반 상수, DB 무의존</span></td>
     </tr>
     <tr>
-        <td><strong>경로 방향 체계</strong></td>
-        <td>공간 방향 8방위<br>(Up, Down, Left, Right, 대각선)<br><span class="neutral">— BMI/PBF 인덱스 이동 방향</span></td>
-        <td>생리학적 상태 9방향<br>(LeanBulk, Cut, Diet, CleanBulk 등)<br><span class="gain">— 체성분 변화의 생리학적 의미를 직접 반영</span></td>
+        <td><strong>경로 방향</strong></td>
+        <td>공간 방향 8방위 (Up/Down/Left/Right…)<br><span class="neutral">— BMI/PBF 인덱스 이동 방향</span></td>
+        <td>생리학적 상태 9방향<br>(LeanBulk, Cut, Diet, CleanBulk 등)<br><span class="gain">— 체성분 변화의 <em>의미</em>를 직접 반영</span></td>
     </tr>
     <tr>
-        <td><strong>난이도 반영 방식</strong></td>
-        <td>별도의 성공확률(SuccessProb) 계산 후<br>가중치로 적용<br><span class="neutral">— 난이도와 소요시간이 분리된 2단계 구조</span></td>
-        <td>변화율 함수 자체에 난이도 내재<br>(FFMI↑ → rate↓ → 소요시간↑)<br><span class="gain">— 단일 수식에서 난이도와 소요시간을 동시 산출</span></td>
+        <td><strong>난이도</strong></td>
+        <td>성공확률(SuccessProb) 별도 계산 후 가중<br><span class="neutral">— 난이도와 소요시간이 2단계 분리</span></td>
+        <td>변화율 함수에 난이도 내재<br>(FFMI↑ → rate↓ → 소요시간↑)<br><span class="gain">— 단일 수식으로 동시 산출</span></td>
     </tr>
     <tr>
         <td><strong>연속성</strong></td>
-        <td>클러스터 단위 계단식 불연속<br><span class="neutral">— 클러스터 경계에서 값이 급변</span></td>
-        <td>지수감쇄/포화성장 연속함수<br><span class="gain">— 입력값 변화에 따라 결과가 매끄럽게 변화</span></td>
+        <td>클러스터 단위 계단식 불연속<br><span class="neutral">— 경계에서 소요시간 급변</span></td>
+        <td>지수감쇄·포화성장 연속함수<br><span class="gain">— 입력값에 따라 매끄럽게 변화</span></td>
     </tr>
     <tr>
         <td><strong>연령 보정</strong></td>
-        <td><span class="loss">없음</span><br>— 동일 체성분이면 연령 무관 동일 소요시간</td>
-        <td><span class="gain">근증가/근손실 연령 계수 적용</span><br>— anabolic resistance, 근보존 능력 저하 반영</td>
+        <td><span class="loss">없음</span> — 25세 = 55세</td>
+        <td><span class="gain">근증가·근손실 연령 계수 적용</span><br>— anabolic resistance 반영</td>
     </tr>
     <tr>
-        <td><strong>다구간 경로 처리</strong></td>
-        <td>단순 데이터 청킹<br><span class="neutral">— 구간 간 상호작용 미고려</span></td>
-        <td>누적 FFMI 추적 + HybridGamma 대사적응 반영<br><span class="gain">— 경로 진행에 따른 생리학적 상태 변화를 반영</span></td>
+        <td><strong>다구간 경로</strong></td>
+        <td>단순 데이터 청킹<br><span class="neutral">— 구간 간 상호작용 무시</span></td>
+        <td>누적 FFMI 추적 + HybridGamma<br><span class="gain">— 장기 다이어트 대사적응 반영</span></td>
     </tr>
     <tr>
-        <td><strong>리컴포지션<br>(Recomp) 처리</strong></td>
-        <td>대각선 방향을 두 직교 방향의 평균으로 보간<br><span class="neutral">— 동시 근증가+지방감소의 특수성 미반영</span></td>
-        <td>severity(에너지 적자 심각도) 기반 자동 Recomp 계수<br><span class="gain">— 에너지 수지 상태에 따른 리컴포지션 난이도를 정량화</span></td>
+        <td><strong>리컴포지션</strong></td>
+        <td>대각선 = 두 직교 방향의 평균 보간<br><span class="neutral">— 동시 근증가+지방감소 특수성 미반영</span></td>
+        <td>severity 기반 자동 Recomp 계수<br><span class="gain">— 에너지 수지 상태로 난이도 정량화</span></td>
     </tr>
 </table>
 
 <div class="key-point">
-    <strong>핵심 차별점 요약:</strong><br>
-    • <strong>예측 근거의 전환</strong>: 과거 데이터의 통계적 패턴 → 인체 생리학 원리에 기반한 수식 모델<br>
-    • <strong>해상도의 전환</strong>: 이산 격자(81개 셀) → 연속 공간(무한 해상도)<br>
-    • <strong>개인화의 전환</strong>: 체성분 좌표만 고려 → 현재 FFMI 수준, 연령, 경로 진행 상태까지 반영
+    <strong>한 줄 요약:</strong><br>
+    "과거 평균이 아닌, <strong>이 사람의 몸이 변할 수 있는 속도</strong>로 기간을 계산한다."
 </div>
 
-<h3>0-3. 본 발명의 구체적 효과</h3>
+<h3>0-3. 구체적 개선 효과 — 시나리오로 보기</h3>
+
+<p>동일한 사용자에게 선행기술과 본 발명이 어떻게 다른 결과를 내는지 살펴봅니다.</p>
+
+<div class="case-grid">
+<div class="case-card" style="border-color:rgba(255,107,107,0.3);">
+    <h4 style="color:#ff8a65;">선행기술이 놓치는 것</h4>
+    <p style="font-size:0.85rem; color:#bbb;">
+    <strong>사용자 A</strong> (남성, 25세, FFMI 17)<br>
+    <strong>사용자 B</strong> (남성, 55세, FFMI 23)<br>
+    둘 다 같은 클러스터에서 근육 +5kg 목표<br><br>
+    <span class="arrow">→</span> 선행기술: <strong>동일한 소요시간</strong> 제시<br>
+    <span style="color:#ff6b6b;">연령 차이(30년), 근육 발달 수준 차이 무시</span>
+    </p>
+</div>
+<div class="case-card" style="border-color:rgba(0,212,255,0.3);">
+    <h4 style="color:#00d4ff;">본 발명의 개인화</h4>
+    <p style="font-size:0.85rem; color:#bbb;">
+    <strong>사용자 A</strong>: FFMI 17 → rate 2.0 kg/월, 25세 계수 1.0<br>
+    = 5.0 ÷ 2.0 = <span class="gain">2.5개월</span><br><br>
+    <strong>사용자 B</strong>: FFMI 23 → rate 0.5 kg/월, 55세 계수 0.70<br>
+    = (5.0 ÷ 0.5) ÷ 0.70 = <span class="loss">14.3개월</span><br><br>
+    <span style="color:#00d4ff;">동일 목표, <strong>5.7배 차이</strong> — 현실에 부합</span>
+    </p>
+</div>
+</div>
+
 <table>
-    <tr><th style="width:25%;">효과</th><th>설명</th></tr>
+    <tr><th style="width:25%;">개선 효과</th><th>선행기술의 문제</th><th>본 발명의 해결</th></tr>
     <tr>
-        <td><strong>목표 지향적 기간 예측</strong></td>
-        <td>자연적 확률 분포가 아닌, <strong>의도적 체성분 변화를 추구하는 사용자</strong>의 생리학적 변화 속도에 기반하여 소요시간을 산출합니다. 저항 운동과 식이 관리를 병행하는 사용자에게 최적화된 현실적 기간을 제공합니다.</td>
+        <td><strong>목표 지향적 예측</strong></td>
+        <td>자연적 변화가 섞인 DB 평균</td>
+        <td>저항 운동 + 식이 관리 병행 시의 <strong>생리학적 변화 속도</strong>로 직접 계산</td>
     </tr>
     <tr>
-        <td><strong>연속적 소요시간 변화</strong></td>
-        <td>이산 클러스터 경계에서 소요시간이 급변하지 않고, 입력값(BMI, PBF, 연령) 변화에 따라 <strong>매끄럽게 연속적으로</strong> 변화합니다. 유사한 체성분의 사용자가 유사한 소요시간을 받는 일관된 경험을 제공합니다.</td>
+        <td><strong>연속적 변화</strong></td>
+        <td>PBF 24.9% vs 25.1% → 소요시간 급변</td>
+        <td>연속함수로 <strong>매끄럽게 변화</strong> — 비슷한 체성분 = 비슷한 기간</td>
     </tr>
     <tr>
         <td><strong>다차원 개인화</strong></td>
-        <td>동일한 체성분 목표라도 <strong>현재 FFMI</strong>(근육 발달 수준), <strong>연령</strong>(anabolic resistance), <strong>경로 방향</strong>(다이어트/벌크/리컴프)에 따라 서로 다른 소요시간을 산출합니다. (<a href="#worked-examples">섹션 12 실전 예시</a> 참조)</td>
+        <td>체성분 좌표만으로 결정</td>
+        <td><strong>FFMI 수준 + 연령 + 경로 방향</strong>이 모두 수식에 반영 (<a href="#worked-examples">섹션 12 참조</a>)</td>
     </tr>
     <tr>
-        <td><strong>리컴포지션 난이도 정량화</strong></td>
-        <td>근증가와 지방감소를 동시에 추구하는 리컴포지션 목표의 난이도를 <strong>에너지 적자 심각도(severity)</strong>로 자동 산출하여, 비현실적 목표에 대해 적절히 긴 기간을 제시합니다.</td>
+        <td><strong>리컴포지션 정량화</strong></td>
+        <td>대각선 = 직교 방향의 단순 평균</td>
+        <td>에너지 적자 심각도(severity)로 <strong>리컴프 난이도를 자동 산출</strong></td>
     </tr>
     <tr>
         <td><strong>대사적응 반영</strong></td>
-        <td>장기 칼로리 적자 시 발생하는 <strong>기초대사율 감소(adaptive thermogenesis)</strong>를 HybridGamma(γ) 가중치로 반영하여, 다이어트 후반부의 감량 속도 둔화를 소요시간에 포함합니다.</td>
+        <td>장기 다이어트 후반 둔화 미반영</td>
+        <td>HybridGamma(γ)로 <strong>adaptive thermogenesis</strong> 포함</td>
     </tr>
 </table>
 </div>
